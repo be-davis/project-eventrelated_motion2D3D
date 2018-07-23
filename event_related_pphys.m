@@ -1,16 +1,21 @@
-function event_related_pphys(run_exp)
+function [sub_dirs] = event_related_pphys(run_exp)
     close all;
     if nargin < 1
-        run_exp = 2;
+        run_exp = 3;
     else
     end
-    addpath(genpath('/Volumes/Denali_4D2/Brandon/code/git/mrC'));
+    addpath(genpath('/Volumes/Denali_DATA1/Brandon/code/git/mrC'));
+    exclude_subs = {'empty'};
     if run_exp == 1
-        top_path = '/Volumes/Denali_4D2/Brandon/eventrelated_motion2D3D/pphys_v1';
+        top_path = '/Volumes/Denali_DATA1/Brandon/eventrelated_motion2D3D/pphys_v1';
         exp_time = 2; % two second experiment
     elseif run_exp == 2
-        top_path = '/Volumes/Denali_4D2/Brandon/eventrelated_motion2D3D/pphys_v2';
+        top_path = '/Volumes/Denali_DATA1/Brandon/eventrelated_motion2D3D/pphys_v2';
         exp_time = 4; % four second experiment
+    elseif run_exp == 3
+        top_path = '/Volumes/Denali_DATA1/Brandon/eventrelated_motion2D3D/EEG_exp1';
+        exp_time = 4; % four second experiment
+        exclude_subs = {'20180713_nl-0014','20180719_nl-0045','20180720_nl-0037','20180720_nl-0037_DELETE' };
     else
         msg = sprintf('\n unknown experiment: %d',run_exp);
         error(msg);
@@ -18,15 +23,33 @@ function event_related_pphys(run_exp)
     lower_cutoff = exp_time/2+.2; % lowest allowed RT, in seconds
     %% PREPARE ANALYSIS
     cond_names = {'right','left','near','far'};
-    sub_dirs = subfolders([top_path,'/nl-*'],1); % list of subject directories
+    if run_exp == 3
+        sub_dirs = subfolders([top_path,'/2018*'],1);% list of subject directories
+    else
+        sub_dirs = subfolders([top_path,'/nl-*'],1);
+    end
+    % get rid of excluded subjects
+    exclude_subs = cellfun(@(x) fullfile(top_path,x), exclude_subs,'uni',false);
+    sub_dirs = sub_dirs(~ismember(sub_dirs,exclude_subs));
+    
     num_subs = length(sub_dirs);
     %% RUN ANALYSIS
+    total_trials = [];
     for s = 1:length(sub_dirs) % loop over subject directories
-        cur_dir = [sub_dirs{s},'/Exp_MATL'];
-        cur_files = subfiles([cur_dir,'/RT*'],1);
-        cur_rt = [];
-        cur_resp = [];
-        cur_cond = [];
+        % check if subject is in exclude_subs
+        % organize behavioral data for pphys and EEG_exp1 experiments
+        if run_exp == 3
+            cur_dir = subfolders(sub_dirs{s},1);
+            cur_dir = cur_dir{2};
+            cur_dir = [cur_dir, '/Exp_MATL_HCN_128_Avg'];
+            cur_files = subfiles([cur_dir, '/RT*'],1);
+            axx_files = subfiles([cur_dir, '/Axx*trials.mat'],1);
+        else
+            cur_dir = [sub_dirs{s},'/Exp_MATL'];
+            cur_files = subfiles([cur_dir,'/RT*'],1);
+        end
+        
+        cur_rt = []; cur_resp = []; cur_cond = [];
         % loop over files/blocks, and concanetate trial data
         for f = 1:length(cur_files)
             cur_data = load(cur_files{f});
@@ -37,110 +60,111 @@ function event_related_pphys(run_exp)
             else
             end
         end
+        cur_rt = (cur_rt-exp_time/2) * 1000;
         % converting string response values to numbers
         [~,cur_resp] = ismember(cur_resp,{'Ra','La','Da','Ua'});
         % count missed responses
         proportion_misses(s) = size(find(cur_resp == 0),1) / size(cur_resp,1) * 100;
-
-        % get rid of missed responses
-        cur_rt = cur_rt(cur_resp ~= 0);
-        cur_cond = cur_cond(cur_resp ~= 0);
-        cur_resp = cur_resp(cur_resp ~= 0);
-
-        % get rid of early responses
-       if any(cur_rt < lower_cutoff)
-           msg = sprintf('subject %s has %d responses below cutoff',sub_dirs{s},sum(cur_rt<lower_cutoff));
-           warning(msg);
-            cur_rt = cur_rt(cur_rt >= lower_cutoff);
-            cur_cond = cur_cond(cur_rt >= lower_cutoff);
-            cur_resp = cur_resp(cur_rt >= lower_cutoff);
-            cur_rt = cur_rt(cur_rt >= lower_cutoff);
+        % gather behavioral data into cell variable, on cell per subject
+        beh_data{s}(:,1) = cur_cond;
+        beh_data{s}(:,2) = cur_rt;
+        beh_data{s}(:,3) = cur_resp;
+        if run_exp == 3
+            % load in eeg
+            for c = 1:length(axx_files)
+                cur_axx = load(axx_files{c});
+                eeg_raw{s}(:,:,cur_cond==c) = cur_axx.Wave;
+            end
         else
-       end
-
-        cur_correct = cur_resp == cur_cond;
-
-        %mean rt, percent correct, and confusion matrix for correct trials
-        for c = 1:4
-            mean_rt(s,c) = (mean(cur_rt(cur_cond == c & cur_correct==true)-exp_time/2)*1000);
-            percent_correct(s,c) = length(cur_rt(cur_cond == c & cur_correct==1))./length(cur_rt(cur_cond == c))*100;
-            conf_mat(c,:,s) = arrayfun(@(x) numel(find(cur_resp(cur_cond==c)==x))./numel(cur_resp(cur_cond==c)),1:4);
         end
-
     end
+    beh_data = cellfun(@(x) beh_preproc(x,lower_cutoff), beh_data,'uni',false);
+    [rt_mean,p_correct,trial_rts,conf_mat] = cellfun(@(x) beh_average(x), beh_data,'uni',false);
+    all_trials = cell(1,4); for s = 1:4; for c=1:4 all_trials{c} = cat(1,all_trials{c},trial_rts{s}{c}); end; end;    
+    
+    % PLOT EEG
+    plot(mean(eeg_raw{1}(:,75,beh_data{s}(:,1)==1 & beh_data{s}(:,4)==1 & beh_data{s}(:,5)==1),3))
+    hold on
+    plot(mean(eeg_raw{1}(:,75,beh_data{s}(:,1)==2 & beh_data{s}(:,4)==1 & beh_data{s}(:,5)==1),3))
+    plot(mean(eeg_raw{1}(:,75,beh_data{s}(:,1)==3 & beh_data{s}(:,4)==1 & beh_data{s}(:,5)==1),3))
+    plot(mean(eeg_raw{1}(:,75,beh_data{s}(:,1)==4 & beh_data{s}(:,4)==1 & beh_data{s}(:,5)==1),3))
+    
     %% MAKE FIGURES 
-    disp(conf_mat); % Prints the confusion matrix for each subject in the command window
-    mean_conf_mat = mean(conf_mat, 3); % Averages responses across all subjects
-    %Displaying heat map based on mean_conf_mat
-
-    imagesc(mean_conf_mat);
-    fig = gcf;
-    ax = fig.CurrentAxes;
-    ax.XLabel.String = 'response';
-    ax.YLabel.String = 'condition';
-    set(ax, 'YTick', [1 2 3 4], 'XTick', [1 2 3 4], 'YTickLabel', {'right', 'left', 'near', 'far'}, 'XTickLabel', {'right', 'left', 'down', 'up'});
-    colormap('summer')
-    colorbar;
-    %Setting window for displaying percent correct and reaction time
-    fig_h = 8; % 8 inches
-    fig_w = 5; % 4 inches
-    % define a cell variable, containing axis options
-    fSize = 12;
-    lWidth = 2;
-    axOpts = {'tickdir','out','ticklength',[0.0100,0.0100],'box','off','fontsize',fSize,'fontname','Helvetica','linewidth',lWidth,'xlim',[.5,4.5]};
-
-    figure;
-    subplot(2,1,1);
-    rt_grandmean = (mean(mean_rt,1));
-    rt_granderr = std(mean_rt,0,1)./sqrt(num_subs);
-    %Making bars different colors for reaction time bar graph
+    % displaying histogram
+    subplot(5,1,1);
+    c1 = histogram(all_trials{1},20, 'FaceColor', 'y');
     hold on
-    bar_colors = {'y','m','c','r'};
-    for i = 1:length(rt_grandmean)
-      if i == 1
-        h=bar(i, rt_grandmean(i),'facecolor',bar_colors{i});
-        elseif i == 2
-            h=bar(i, rt_grandmean(i),'facecolor',bar_colors{i});
-        elseif i == 3
-            h=bar(i, rt_grandmean(i),'facecolor',bar_colors{i});
-        elseif i == 4
-            h=bar(i, rt_grandmean(i),'facecolor',bar_colors{i});
-        else
-        end 
-    end
-    %Creating x and y axis labels    
-    hold off        
-    set(gca,axOpts{:},'XTickLabel',cond_names, 'XTick',1:numel(cond_names));
-    ylabel('reaction time (ms)');
-    hold on;
-    errorb(1:4,rt_grandmean,rt_granderr);
-    hold off;
-    subplot(2,1,2);
-    correct_grandmean = (mean(percent_correct,1));
-    correct_granderr = std(percent_correct,0,1)./sqrt(num_subs);
-    %Making bars different colors for percent correct bar graph
+    subplot(5,1,2)
+    c2 = histogram(all_trials{2}, 20, 'FaceColor', 'm');
     hold on
-    for i = 1:length(correct_grandmean)
-        if i == 1
-        h=bar(i, correct_grandmean(i),'facecolor',bar_colors{i});
-        elseif i == 2
-            h=bar(i, correct_grandmean(i),'facecolor',bar_colors{i});
-        elseif i == 3
-            h=bar(i, correct_grandmean(i),'facecolor',bar_colors{i});
-        elseif i == 4
-            h=bar(i, correct_grandmean(i),'facecolor',bar_colors{i});
-        else
-        end 
-    end
-    hold off
-    set(gca, axOpts{:},'XTickLabel',cond_names, 'XTick',1:numel(cond_names));
-    ylabel('percent correct');
-    hold on;
-    errorb(1:4,correct_grandmean,correct_granderr);
-    set(gcf,'units','inches');
-    fig_pos = get(gcf,'position');
-    fig_pos(3) = fig_w;
-    fig_pos(4) = fig_h;
-    set(gcf,'position',fig_pos)
+    subplot(5,1,3)
+    c3 = histogram (all_trials{3}, 20, 'FaceColor', 'c');
+    hold on
+    subplot(5,1,4)
+    c4 = histogram (all_trials{4}, 20, 'FaceColor', 'r');
+    hold on
 end
+
+function beh_data = beh_preproc(beh_data,lower_cutoff)
+    % get correct responses
+    beh_data(:,4) = beh_data(:,1) == beh_data(:,3);
+    % make list of responses to keep
+    beh_data(:,5) = beh_data{s}(:,3) ~= 0;
+    % indicate early responses
+    beh_data(:,5) = beh_data{s}(:,5) & (beh_data{s}(:,2) >=lower_cutoff);
+end
+
+function [rt_mean,percent_correct,correct_rts,conf_mat] = beh_average(beh_data)
+    % get rid of missing trials
+    beh_data = beh_data(beh_data(:,5)==1,:);
+    % get list of conditions
+    cond_list = unique(beh_data(:,1));
+    % grab trials where the first column == cond_list(c)
+    for c = 1:length(cond_list)
+        correct_rts{c} = beh_data( beh_data(:,1)==cond_list(c) & beh_data(:,4)==1 ,2);
+        % compute average RT for correct trials
+        rt_mean(c) = mean( correct_rts{c} );
+        % compute percent correct trials
+        percent_correct(c) = sum(beh_data(beh_data(:,1)==cond_list(c),4))./length(beh_data(beh_data(:,1)==cond_list(c),4))*100;
+        % compute confusion
+        conf_mat(c,:) = hist(beh_data(beh_data(:,1)==cond_list(c),3),cond_list)./length(beh_data(beh_data(:,1)==cond_list(c))); 
+    end
+end
+function [] = stim_averaging(beh_data,eeg_data)
+    % STIMULUS LOCKED AVERAGING
+    % RETURN TIME X ELECTRODE MATRIX X CONDITION
+    mean_eeg(c) = mean(all_eeg(c),3); %average over trials of each condition
+    % AVERAGE OVER TRIALS
+    mean_all_eeg = mean(all_eeg, 3); %all trials
+    % IGNORE MISSING AND INCORRECT TRIALS
+    eeg_raw{s} = eeg_raw{s}(:,:,(beh_data{s}(:,4)==1 & beh_data{s}(:,5)==1));
+    for t = 1:360 %ignore for incorrect
+        if beh_data{s}(t,4)==0
+            all_eeg(:,:,t)=[];
+        else
+            all_eeg(:,:,t) = all_eeg(:,:,t);
+        end
+    end
+   for u = 1:size(all_eeg,3) %ignore for missed
+        if beh_data{s}(t,5)==0
+            all_eeg(:,:,t)=[];
+        else
+            all_eeg(:,:,t) = all_eeg(:,:,t);
+        end
+   end   
+end
+%function [] resp_averaging(beh_data,eeg_data)
+    % RESPONSE-LOCKED AVERAGING
+    
+    % RETURN TIME X ELECTRODE MATRIX X CONDITION
+    
+    % AVERAGE OVER TRIALS 
+    
+    % IGNORE MISSING AND INCORRECT TRIALS
+%end
+    
+    
+
+
+
 

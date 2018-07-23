@@ -1,4 +1,5 @@
 # OSX / *nix default autosave extension
 *.m~
 
+# DS STORE
 .DS_Store
