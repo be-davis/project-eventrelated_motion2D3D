@@ -12,8 +12,8 @@ function [sub_dirs] = EventRelatedAnalysis(run_exp,run_analysis,comp_channel,tem
         comp_channel = 75;
     else
     end
-    if nargin < 4 || isempty(temp_res)
-        temp_res = 420;
+    if nargin < 4 || isempty(time_res)
+        time_res = 420;
     else
     end
         
@@ -36,7 +36,7 @@ function [sub_dirs] = EventRelatedAnalysis(run_exp,run_analysis,comp_channel,tem
     lower_cutoff = 200;  % lowest allowed RT, in milliseconds
     upper_cutoff = 1800; % highest allowed RT, in milliseconds
     pre_time = 1000; post_time = 200; % pre and post response time to include in response-locking
-    rca_time_roi = (1+2*temp_res):(2.5*temp_res); % temporal ROI for RCA
+    rca_time_roi = (1+2*time_res):(2.5*time_res); % temporal ROI for RCA
 
     %% RUN ANALYSIS
     % prepare variables
@@ -85,7 +85,7 @@ function [sub_dirs] = EventRelatedAnalysis(run_exp,run_analysis,comp_channel,tem
             [~,cur_resp] = ismember(cur_resp,{'Ra','La','Da','Ua'});
             % count missed responses
             proportion_misses(s) = size(find(cur_resp == 0),1) / size(cur_resp,1) * 100;
-            % gather behavioral data into cell variable, on cell per subject
+            % gather behavioral data into cell variable, one cell per subject
             beh_data{s}(:,1) = cur_cond;
             beh_data{s}(:,2) = cur_rt;
             beh_data{s}(:,3) = cur_resp;
@@ -101,34 +101,31 @@ function [sub_dirs] = EventRelatedAnalysis(run_exp,run_analysis,comp_channel,tem
             % preprocess behavioral data
             beh_data{s} = beh_preproc(beh_data{s},lower_cutoff,upper_cutoff);
             % eeg data
-            [egi_data.stim(:,:,:,s),stim_trials(:,s)] = stim_averaging(beh_data{s},eeg_raw);
-            [egi_data.resp(:,:,:,s),resp_trials(:,s)] = resp_averaging(beh_data{s},eeg_raw,temp_res,exp_dur,pre_time,post_time);
+            [egi_data.stim(:,:,:,s),egi_data.stim_trials(:,s)] = stim_averaging(beh_data{s},eeg_raw);
+            [egi_data.resp(:,:,:,s),egi_data.resp_trials(:,s)] = resp_averaging(beh_data{s},eeg_raw,time_res,exp_dur,pre_time,post_time);
             clear eeg_raw; 
             fprintf('\n finished subject %s',sub_dirs{s});
         end
         %% DO RCA
-        rca_trials = cellfun(@(x) x(rca_time_roi,:,:),stim_trials,'uni',false);
+        rca_trials = cellfun(@(x) x(rca_time_roi,:,:),egi_data.stim_trials,'uni',false);
 
         [rca_data.Data,rca_data.W,rca_data.A,rca_data.RXX,rca_data.RYY,rca_data.RXY]=rcaRun(rca_trials,11,7);
-        rca_data.stim = rcaProject(egi_data.stim_trials,rca_data.W);
-        rca_data.resp = rcaProject(egi_data.resp_trials,rca_data.W);
-        rca_data = rmfield(rca_data,'Data');
+        rca_data.stim_trials = rcaProject(egi_data.stim_trials,rca_data.W);
+        rca_data.resp_trials = rcaProject(egi_data.resp_trials,rca_data.W);
+        rca_data = rmfield(rca_data,'Data'); 
+        egi_data = rmfield(egi_data,'stim_trials'); egi_data = rmfield(egi_data,'resp_trials');
+        clear rca_trials;
         
         % average cross trials
         % cross-trials
-        rca_temp_stim = cellfun(@(x) nanmean(x,3), rca_data.stim,'uni',false);
-        rca_temp_resp = cellfun(@(x) nanmean(x,3), rca_data.resp,'uni',false);
-        rca_data = rmfield(rca_data,'stim'); rca_data = rmfield(rca_data,'resp');
+        rca_temp_stim = cellfun(@(x) nanmean(x,3), rca_data.stim_trials,'uni',false);
+        rca_temp_resp = cellfun(@(x) nanmean(x,3), rca_data.resp_trials,'uni',false);
+        rca_data = rmfield(rca_data,'stim_trials'); rca_data = rmfield(rca_data,'resp_trials');
         egi_temp_stim = egi_data.stim; 
         egi_temp_resp = egi_data.resp;
-        egi_data = rmfield(egi_data,'stim'); egi_data = rmfield(egi_data,'resp');
         for c = 1: length(cond_names)
-            rca_data.stim(:,:,:,c) = cat(3,rca_temp_stim{c,:});
-            rca_data.resp(:,:,:,c) = cat(3,rca_temp_resp{c,:});
-            for s = 1:length(egi_temp_stim)
-                egi_data.stim(:,:,s,c) = egi_temp_stim{s}(:,:,c);
-                egi_data.resp(:,:,s,c) = egi_temp_resp{s}(:,:,c);
-            end
+            rca_data.stim(:,:,c,:) = cat(3,rca_temp_stim{c,:});
+            rca_data.resp(:,:,c,:) = cat(3,rca_temp_resp{c,:});
         end
         clear *temp*;
         % and then save
@@ -142,17 +139,17 @@ function [sub_dirs] = EventRelatedAnalysis(run_exp,run_analysis,comp_channel,tem
     all_rts = cell(1,4); for s = 1:4; for c=1:4 all_rts{c} = cat(1,all_rts{c},trial_rts{s}{c}); end; end;
 
     stim_mean = cat(2,rca_data.stim,egi_data.stim(:,comp_channel,:,:));    
-    stim_mean(:,:,:,length(cond_names)+1) = stim_mean(:,:,:,3) - mean(stim_mean(:,:,:,1:2),4);
-    stim_mean(:,:,:,length(cond_names)+2) = stim_mean(:,:,:,4) - mean(stim_mean(:,:,:,1:2),4);
+    stim_mean(:,:,length(cond_names)+1,:) = stim_mean(:,:,3,:) - mean(stim_mean(:,:,1:2,:),3);
+    stim_mean(:,:,length(cond_names)+2,:) = stim_mean(:,:,4,:) - mean(stim_mean(:,:,1:2,:),3);
     resp_mean = cat(2,rca_data.resp,egi_data.resp(:,comp_channel,:,:));    
-    resp_mean(:,:,:,length(cond_names)+1) = resp_mean(:,:,:,3) - mean(resp_mean(:,:,:,1:2),4);
-    resp_mean(:,:,:,length(cond_names)+2) = resp_mean(:,:,:,4) - mean(resp_mean(:,:,:,1:2),4);
+    resp_mean(:,:,length(cond_names)+1,:) = resp_mean(:,:,3,:) - mean(resp_mean(:,:,1:2,:),3);
+    resp_mean(:,:,length(cond_names)+2,:) = resp_mean(:,:,4,:) - mean(resp_mean(:,:,1:2,:),3);
 
     % cross-subjects
-    plot_stim_mean = squeeze(mean(stim_mean,3));
-    plot_stim_err = squeeze(std(stim_mean,0,3)./sqrt(num_subs));
-    plot_resp_mean = squeeze(mean(resp_mean,3));
-    plot_resp_err = squeeze(std(resp_mean,0,3)./sqrt(num_subs));
+    plot_stim_mean = squeeze(mean(stim_mean,4));
+    plot_stim_err = squeeze(std(stim_mean,0,4)./sqrt(num_subs));
+    plot_resp_mean = squeeze(mean(resp_mean,4));
+    plot_resp_err = squeeze(std(resp_mean,0,4)./sqrt(num_subs));
     
     %% PLOT BEHAVIOR
     % displaying histogram
@@ -204,7 +201,7 @@ function [sub_dirs] = EventRelatedAnalysis(run_exp,run_analysis,comp_channel,tem
                     err_vals = plot_stim_err(:,plot_comps(e),c);
                     x_min = 2000;
                     x_max = 3500;
-                    x_vals = 1000/temp_res:1000/temp_res:exp_dur;
+                    x_vals = 1000/time_res:1000/time_res:exp_dur;
                 else
                     title_str = 'response-locked';
                     eeg_h(e) = subplot(length(plot_comps),5,(4:5)+5*(e-1));
@@ -212,7 +209,7 @@ function [sub_dirs] = EventRelatedAnalysis(run_exp,run_analysis,comp_channel,tem
                     err_vals = plot_resp_err(:,plot_comps(e),c);
                     x_min = -pre_time;
                     x_max = post_time;
-                    x_vals = -pre_time:1000/temp_res:post_time;
+                    x_vals = -pre_time:1000/time_res:post_time;
                     plot(zeros(2,1),[x_min,x_max],'-k','linewidth',l_width)
                 end
                 eeg_pos(:,e) = get(eeg_h(e),'position');
@@ -322,7 +319,7 @@ function [eeg_mean,eeg_trials] = stim_averaging(beh_data,eeg_raw)
         eeg_mean(:,:,c) = squeeze(mean(eeg_trials{c},3));
     end
 end
-function [resp_mean,resp_trials] = resp_averaging(beh_data,eeg_raw,temp_res,exp_dur,pre_time,post_time)
+function [resp_mean,resp_trials] = resp_averaging(beh_data,eeg_raw,time_res,exp_dur,pre_time,post_time)
     % RESPONSE-LOCKED AVERAGING
     % RETURN TIME X ELECTRODE MATRIX X CONDITION
     % get list of conditions
@@ -333,9 +330,9 @@ function [resp_mean,resp_trials] = resp_averaging(beh_data,eeg_raw,temp_res,exp_
         trial_idx = beh_data(:,1)==c & beh_data(:,4)==1 & beh_data(:,5)==1;
         get_trials = eeg_raw(:,:, trial_idx );
         get_timing = beh_data(trial_idx,2) + exp_dur/2;
-        timing_idx = round(get_timing/1000*temp_res);
-        pre_samples = temp_res*(pre_time/1000);
-        post_samples = temp_res*(post_time/1000);
+        timing_idx = round(get_timing/1000*time_res);
+        pre_samples = time_res*(pre_time/1000);
+        post_samples = time_res*(post_time/1000);
         resp_temp = arrayfun(@(x) ...
                 get_trials(timing_idx(x)-pre_samples:timing_idx(x)+post_samples,:,x),1:length(timing_idx),'uni',false);
         resp_trials{c} = cat(3,resp_temp{:});
