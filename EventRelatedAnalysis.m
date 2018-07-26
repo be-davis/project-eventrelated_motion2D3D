@@ -1,10 +1,22 @@
-function [sub_dirs] = event_related_pphys(run_exp)
+function [sub_dirs] = EventRelatedAnalysis(run_exp,run_analysis,comp_channel,temp_res)
     close all;
-    if nargin < 1
+    if nargin < 1 || isempty(run_exp)
         run_exp = 3;
     else
     end
-    addpath(genpath('/Volumes/Denali_DATA1/Brandon/code/git/mrC'));
+    if nargin < 2 || isempty(run_analysis)
+        run_analysis = false;
+    else
+    end
+    if nargin < 3 || isempty(comp_channel)
+        comp_channel = 75;
+    else
+    end
+    if nargin < 4 || isempty(temp_res)
+        temp_res = 420;
+    else
+    end
+        
     exclude_subs = {'empty'};
     if run_exp == 1
         top_path = '/Volumes/Denali_DATA1/Brandon/eventrelated_motion2D3D/pphys_v1';
@@ -23,11 +35,8 @@ function [sub_dirs] = event_related_pphys(run_exp)
     %% USER VARIABLES
     lower_cutoff = 200;  % lowest allowed RT, in milliseconds
     upper_cutoff = 1800; % highest allowed RT, in milliseconds
-    time_res = 420;
-    comp_channel = 75;
     pre_time = 1000; post_time = 200; % pre and post response time to include in response-locking
-    rca_time_roi = (1+2*time_res):(2.5*time_res); % temporal ROI for RCA
-    run_analysis = false;
+    rca_time_roi = (1+2*temp_res):(2.5*temp_res); % temporal ROI for RCA
 
     %% RUN ANALYSIS
     % prepare variables
@@ -43,7 +52,8 @@ function [sub_dirs] = event_related_pphys(run_exp)
 
     num_subs = length(sub_dirs);
     if ~run_analysis
-        load(sprintf('%s/analyzed_data.mat',top_path),'rca_data','beh_data','egi_data');
+        fprintf('\n ... LOADING DATA ... \n');
+        load(sprintf('%s/analyzed_data.mat',top_path),'beh_data','rca_data','egi_data');
     else
         for s = 1:length(sub_dirs) % loop over subject directories
             % check if subject is in exclude_subs
@@ -87,15 +97,14 @@ function [sub_dirs] = event_related_pphys(run_exp)
                 end
             else
             end
-            msg = sprintf('\n finished subject %s',sub_dirs{s});
-            disp(msg);
+            fprintf('\n finished subject %s',sub_dirs{s});
         end
         % preprocess behavioral data
         beh_data = cellfun(@(x) beh_preproc(x,lower_cutoff,upper_cutoff), beh_data,'uni',false);
         
         % eeg data
         [egi_data.stim,stim_trials] = cellfun(@(x,y) stim_averaging(x,y), beh_data,eeg_raw,'uni',false);
-        [egi_data.resp,resp_trials] = cellfun(@(x,y) resp_averaging(x,y,time_res,exp_dur,pre_time,post_time), beh_data,eeg_raw,'uni',false);
+        [egi_data.resp,resp_trials] = cellfun(@(x,y) resp_averaging(x,y,temp_res,exp_dur,pre_time,post_time), beh_data,eeg_raw,'uni',false);
         
         %% DO RCA
         for c = 1: length(cond_names)
@@ -130,6 +139,7 @@ function [sub_dirs] = event_related_pphys(run_exp)
         end
         clear *temp*;
         % and then save
+        fprintf('\n ... SAVING DATA ... \n');
         save(sprintf('%s/analyzed_data.mat',top_path),'rca_data','beh_data','egi_data','-v7.3');
     end
     %% AVERAGING
@@ -152,28 +162,27 @@ function [sub_dirs] = event_related_pphys(run_exp)
     plot_resp_err = squeeze(std(resp_mean,0,3)./sqrt(num_subs));
     
     %% PLOT BEHAVIOR
-        
-    %% MAKE FIGURES 
     % displaying histogram
+    figure;
     subplot(5,1,1);
-    c1 = histogram(all_trials{1},20, 'FaceColor', 'y');
+    c1 = histogram(all_rts{1},20, 'FaceColor', 'y');
     xlim([0,2000]);
     hold on
     subplot(5,1,2)
-    c2 = histogram(all_trials{2}, 20, 'FaceColor', 'm');
+    c2 = histogram(all_rts{2}, 20, 'FaceColor', 'm');
     xlim([0,2000]);
     hold on
     subplot(5,1,3)
-    c3 = histogram (all_trials{3}, 20, 'FaceColor', 'c');
+    c3 = histogram (all_rts{3}, 20, 'FaceColor', 'c');
     xlim([0,2000]);
     hold on
     subplot(5,1,4)
-    c4 = histogram (all_trials{4}, 20, 'FaceColor', 'r');
+    c4 = histogram (all_rts{4}, 20, 'FaceColor', 'r');
     xlim([0,2000]);
     hold on
     
-    
     %% PLOT EEG
+    figure;
     plot_diff = false; % plot difference waveforms (true/false)
     close all;
     f_size = 12;
@@ -186,7 +195,7 @@ function [sub_dirs] = event_related_pphys(run_exp)
                 % plot topography
                 egi_h(e) = subplot(length(plot_comps),5,(3)+5*(e-1)); 
                 hold on
-                mrC.plotOnEgi(rca.A(:,e));
+                mrC.plotOnEgi(rca_data.A(:,e));
                 hold off
             else
             end
@@ -202,7 +211,7 @@ function [sub_dirs] = event_related_pphys(run_exp)
                     err_vals = plot_stim_err(:,plot_comps(e),c);
                     x_min = 2000;
                     x_max = 3500;
-                    x_vals = 1000/time_res:1000/time_res:exp_dur;
+                    x_vals = 1000/temp_res:1000/temp_res:exp_dur;
                 else
                     title_str = 'response-locked';
                     eeg_h(e) = subplot(length(plot_comps),5,(4:5)+5*(e-1));
@@ -210,7 +219,7 @@ function [sub_dirs] = event_related_pphys(run_exp)
                     err_vals = plot_resp_err(:,plot_comps(e),c);
                     x_min = -pre_time;
                     x_max = post_time;
-                    x_vals = -pre_time:1000/time_res:post_time;
+                    x_vals = -pre_time:1000/temp_res:post_time;
                     plot(zeros(2,1),[x_min,x_max],'-k','linewidth',l_width)
                 end
                 eeg_pos(:,e) = get(eeg_h(e),'position');
@@ -320,7 +329,7 @@ function [eeg_mean,eeg_trials] = stim_averaging(beh_data,eeg_raw)
         eeg_mean(:,:,c) = squeeze(mean(eeg_trials{c},3));
     end
 end
-function [resp_mean,resp_trials] = resp_averaging(beh_data,eeg_raw,time_res,exp_dur,pre_time,post_time)
+function [resp_mean,resp_trials] = resp_averaging(beh_data,eeg_raw,temp_res,exp_dur,pre_time,post_time)
     % RESPONSE-LOCKED AVERAGING
     % RETURN TIME X ELECTRODE MATRIX X CONDITION
     % get list of conditions
@@ -331,9 +340,9 @@ function [resp_mean,resp_trials] = resp_averaging(beh_data,eeg_raw,time_res,exp_
         trial_idx = beh_data(:,1)==c & beh_data(:,4)==1 & beh_data(:,5)==1;
         get_trials = eeg_raw(:,:, trial_idx );
         get_timing = beh_data(trial_idx,2) + exp_dur/2;
-        timing_idx = round(get_timing/1000*time_res);
-        pre_samples = time_res*(pre_time/1000);
-        post_samples = time_res*(post_time/1000);
+        timing_idx = round(get_timing/1000*temp_res);
+        pre_samples = temp_res*(pre_time/1000);
+        post_samples = temp_res*(post_time/1000);
         resp_temp = arrayfun(@(x) ...
                 get_trials(timing_idx(x)-pre_samples:timing_idx(x)+post_samples,:,x),1:length(timing_idx),'uni',false);
         resp_trials{c} = cat(3,resp_temp{:});
