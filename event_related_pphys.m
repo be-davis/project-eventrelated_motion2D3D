@@ -136,12 +136,12 @@ function [sub_dirs] = event_related_pphys(run_exp)
     % average behavioral data
     [rt_mean,p_correct,trial_rts,conf_mat] = cellfun(@(x) beh_average(x), beh_data,'uni',false);
     % compute trials distributions
-    all_trials = cell(1,4); for s = 1:4; for c=1:4 all_trials{c} = cat(1,all_trials{c},trial_rts{s}{c}); end; end;
+    all_rts = cell(1,4); for s = 1:4; for c=1:4 all_rts{c} = cat(1,all_rts{c},trial_rts{s}{c}); end; end;
 
-    stim_mean = cat(2,rca_mean_stim,egi_mean_stim(:,comp_channel,:,:));    
+    stim_mean = cat(2,rca_data.stim,egi_data.stim(:,comp_channel,:,:));    
     stim_mean(:,:,:,length(cond_names)+1) = stim_mean(:,:,:,3) - mean(stim_mean(:,:,:,1:2),4);
     stim_mean(:,:,:,length(cond_names)+2) = stim_mean(:,:,:,4) - mean(stim_mean(:,:,:,1:2),4);
-    resp_mean = cat(2,rca_mean_resp,egi_mean_resp(:,comp_channel,:,:));    
+    resp_mean = cat(2,rca_data.resp,egi_data.resp(:,comp_channel,:,:));    
     resp_mean(:,:,:,length(cond_names)+1) = resp_mean(:,:,:,3) - mean(resp_mean(:,:,:,1:2),4);
     resp_mean(:,:,:,length(cond_names)+2) = resp_mean(:,:,:,4) - mean(resp_mean(:,:,:,1:2),4);
 
