@@ -48,7 +48,7 @@ function [sub_dirs] = EventRelatedAnalysis(run_exp,run_analysis,comp_channel,tem
     end
     % get rid of excluded subjects
     exclude_subs = cellfun(@(x) fullfile(top_path,x), exclude_subs,'uni',false);
-    sub_dirs = sub_dirs(~ismember(sub_dirs,exclude_subs));
+    sub_dirs = sub_dirs(~ismember(sub_dirs,exclude_subs)); 
 
     num_subs = length(sub_dirs);
     if ~run_analysis
@@ -93,27 +93,20 @@ function [sub_dirs] = EventRelatedAnalysis(run_exp,run_analysis,comp_channel,tem
                 % load in eeg
                 for c = 1:length(axx_files)
                     cur_axx = load(axx_files{c});
-                    eeg_raw{s}(:,:,cur_cond==c) = cur_axx.Wave;
+                    eeg_raw(:,:,cur_cond==c) = cur_axx.Wave;
+                    clear cur_axx;
                 end
             else
             end
+            % preprocess behavioral data
+            beh_data{s} = beh_preproc(beh_data{s},lower_cutoff,upper_cutoff);
+            % eeg data
+            [egi_data.stim(:,:,:,s),stim_trials(:,s)] = stim_averaging(beh_data{s},eeg_raw);
+            [egi_data.resp(:,:,:,s),resp_trials(:,s)] = resp_averaging(beh_data{s},eeg_raw,temp_res,exp_dur,pre_time,post_time);
+            clear eeg_raw; 
             fprintf('\n finished subject %s',sub_dirs{s});
         end
-        % preprocess behavioral data
-        beh_data = cellfun(@(x) beh_preproc(x,lower_cutoff,upper_cutoff), beh_data,'uni',false);
-        
-        % eeg data
-        [egi_data.stim,stim_trials] = cellfun(@(x,y) stim_averaging(x,y), beh_data,eeg_raw,'uni',false);
-        [egi_data.resp,resp_trials] = cellfun(@(x,y) resp_averaging(x,y,temp_res,exp_dur,pre_time,post_time), beh_data,eeg_raw,'uni',false);
-        
         %% DO RCA
-        for c = 1: length(cond_names)
-            new_stim(:,c) = arrayfun(@(x,y) stim_trials{x}{c}, 1:length(stim_trials),'uni',false);
-            new_resp(:,c) = arrayfun(@(x,y) resp_trials{x}{c}, 1:length(resp_trials),'uni',false);
-        end
-        stim_trials = new_stim'; clear new_stim;
-        resp_trials = new_resp'; clear new_resp;
-
         rca_trials = cellfun(@(x) x(rca_time_roi,:,:),stim_trials,'uni',false);
 
         [rca_data.Data,rca_data.W,rca_data.A,rca_data.RXX,rca_data.RYY,rca_data.RXY]=rcaRun(rca_trials,11,7);
