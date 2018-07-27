@@ -152,32 +152,39 @@ function [sub_dirs] = EventRelatedAnalysis(run_exp,run_analysis,comp_channel,tem
     plot_resp_err = squeeze(std(resp_mean,0,4)./sqrt(num_subs));
     
     %% PLOT BEHAVIOR
-    % displaying histogram
-    figure;
-    subplot(5,1,1);
-    c1 = histogram(all_rts{1},20, 'FaceColor', 'y');
-    xlim([0,2000]);
-    hold on
-    subplot(5,1,2)
-    c2 = histogram(all_rts{2}, 20, 'FaceColor', 'm');
-    xlim([0,2000]);
-    hold on
-    subplot(5,1,3)
-    c3 = histogram (all_rts{3}, 20, 'FaceColor', 'c');
-    xlim([0,2000]);
-    hold on
-    subplot(5,1,4)
-    c4 = histogram (all_rts{4}, 20, 'FaceColor', 'r');
-    xlim([0,2000]);
-    hold on
-    
-    %% PLOT EEG
-    figure;
-    plot_diff = false; % plot difference waveforms (true/false)
     close all;
     f_size = 12;
     l_width = 2;
-    gcaOpts = {'tickdir','out','ticklength',[0.0200,0.0200],'box','off','fontsize',f_size,'fontname','Helvetica','linewidth',l_width,'clipping','on'};
+    gcaOpts = {'tickdir','out','ticklength',[0.0400,0.0400],'box','off','fontsize',f_size,'fontname','Helvetica','linewidth',l_width,'clipping','on'};
+    cBrewer = load('colorBrewer.mat');
+    cond_colors = [cBrewer.rgb20(3,:); cBrewer.rgb20(7,:); cBrewer.rgb20(1,:); cBrewer.rgb20(19,:)];
+    % plot histogram
+    figure;
+    bin_size = 100;
+    hist_ymax = 100;
+    bin_edges = lower_cutoff:bin_size:upper_cutoff;
+    hold on
+    for c = 1:length(cond_names)
+        subplot(4,1,c);
+        histogram(all_rts{c},bin_edges,'facecolor', cond_colors(c,:),'linewidth',l_width);
+        xlim([0,2000]);
+        ylim([0,hist_ymax]);
+        set(gca,gcaOpts{:},'ytick',0:20:hist_ymax,'xtick',0:500:2000)
+    end
+    hold off
+    set(gcf,'units','centimeters');
+    hist_pos = get(gcf,'position');
+    hist_pos(3) = 10;
+    hist_pos(4) = 40;
+    set(gcf,'position',hist_pos);
+    % plot average RT and percent correct
+    % bar plots! 
+    
+    % confusion matrices, averaged over subjects
+    % dude = mean(cat(3,conf_mat{:}),3)
+    %% PLOT EEG
+    figure;
+    plot_diff = false; % plot difference waveforms (true/false)
     plot_comps = [1,2,3,4,size(plot_stim_mean,2)];
     for e = 1:length(plot_comps)
         for q = 1:2
@@ -214,9 +221,9 @@ function [sub_dirs] = EventRelatedAnalysis(run_exp,run_analysis,comp_channel,tem
                 end
                 eeg_pos(:,e) = get(eeg_h(e),'position');
                 hold on;
-                p_h(c) = plot(x_vals,y_vals,'linewidth',l_width);
+                p_h(c) = plot(x_vals,y_vals,'linewidth',l_width,'color',cond_colors(c,:));
                 if c > length(cond_names)
-                    fill([x_vals;flipud(x_vals)],[y_vals-err_vals;flipud(y_vals+err_vals)],get(p_h(c),'color'),'linestyle','none','facealpha',.25);
+                    fill([x_vals;flipud(x_vals)],[y_vals-err_vals;flipud(y_vals+err_vals)],'color',cond_colors(c,:),'linestyle','none','facealpha',.25);
                 else
                 end
             end
