@@ -155,7 +155,7 @@ function [sub_dirs] = EventRelatedAnalysis(run_exp,run_analysis,comp_channel,tem
     close all;
     f_size = 12;
     l_width = 2;
-    gcaOpts = {'tickdir','out','ticklength',[0.0400,0.0400],'box','off','fontsize',f_size,'fontname','Helvetica','linewidth',l_width,'clipping','on'};
+    gcaOpts = {'tickdir','out','ticklength',[0.0200,0.0200],'box','off','fontsize',f_size,'fontname','Helvetica','linewidth',l_width,'clipping','on'};
     cBrewer = load('colorBrewer.mat');
     cond_colors = [cBrewer.rgb20(3,:); cBrewer.rgb20(7,:); cBrewer.rgb20(1,:); cBrewer.rgb20(19,:)];
     % plot histogram
@@ -177,10 +177,25 @@ function [sub_dirs] = EventRelatedAnalysis(run_exp,run_analysis,comp_channel,tem
     hist_pos(3) = 10;
     hist_pos(4) = 40;
     set(gcf,'position',hist_pos);
+    
     % plot average RT and percent correct
     % bar plots! 
+    mean_rt_bar = mean(cat(3,rt_mean{:}),3);
+    mean_corr_bar = mean(cat(3,p_correct{:}),3);
+    figure;
+    subplot(2,1,1);
+    a = bar(mean_rt_bar, 'FaceColor', cond_colors(1,:))
+    set(gca, gcaOpts{:},'xticklabel',cond_names);
+    ylabel('Reaction time (ms)')
     
+    hold on
+    subplot(2,1,2);
+    b = bar(mean_corr_bar, 'facecolor',cond_colors(2,:))
+    set(gca, gcaOpts{:},'xticklabel', cond_names);
+    ylabel('Percent correct')
+   
     % confusion matrices, averaged over subjects
+    
     % dude = mean(cat(3,conf_mat{:}),3)
     %% PLOT EEG
     figure;
