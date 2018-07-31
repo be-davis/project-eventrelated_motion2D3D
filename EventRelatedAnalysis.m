@@ -153,7 +153,7 @@ function [sub_dirs] = EventRelatedAnalysis(run_exp,run_analysis,comp_channel,tem
     
     %% PLOT BEHAVIOR
     close all;
-    f_size = 12;
+    f_size = 20;
     l_width = 2;
     gcaOpts = {'tickdir','out','ticklength',[0.0200,0.0200],'box','off','fontsize',f_size,'fontname','Helvetica','linewidth',l_width,'clipping','on'};
     cBrewer = load('colorBrewer.mat');
@@ -184,19 +184,48 @@ function [sub_dirs] = EventRelatedAnalysis(run_exp,run_analysis,comp_channel,tem
     mean_corr_bar = mean(cat(3,p_correct{:}),3);
     figure;
     subplot(2,1,1);
-    a = bar(mean_rt_bar, 'FaceColor', cond_colors(1,:))
-    set(gca, gcaOpts{:},'xticklabel',cond_names);
+    hold on
+    for i = 1:length(cond_names)
+        if i == 1
+            h = bar(i, mean_rt_bar(i), 'facecolor', cond_colors(i,:));
+        elseif i ==2
+            h = bar(i, mean_rt_bar(i), 'facecolor', cond_colors(i,:));
+        elseif i == 3
+            h = bar(i, mean_rt_bar(i), 'facecolor', cond_colors(i,:));
+        elseif i == 4
+            h = bar(i, mean_rt_bar(i), 'facecolor', cond_colors(i,:));
+        else
+        end
+    end
+    set(gca, gcaOpts{:},'xticklabel',cond_names, 'XTick', 1:numel(cond_names));
     ylabel('Reaction time (ms)')
     
-    hold on
+    hold off
     subplot(2,1,2);
-    b = bar(mean_corr_bar, 'facecolor',cond_colors(2,:))
+    b = bar(mean_corr_bar, 'facecolor',cond_colors(2,:));
     set(gca, gcaOpts{:},'xticklabel', cond_names);
     ylabel('Percent correct')
    
     % confusion matrices, averaged over subjects
+    figure;
+    mean_conf_mat = mean(cat(3, conf_mat{:}),3);
+    imagesc(mean_conf_mat)
+    colormap(flipud(gray));
+    textStrings = num2str(mean_conf_mat(:), '%0.2f');% Create strings from the matrix values
+    textStrings = strtrim(cellstr(textStrings));  % Remove any space padding
+    [x, y] = meshgrid(1:4);  % Create x and y coordinates for the strings
+    hStrings = text(x(:), y(:), textStrings(:),'HorizontalAlignment', 'center');
+    midValue = mean(get(gca, 'CLim'));  % Get the middle value of the color range
+    textColors = repmat(mean_conf_mat(:) > midValue, 1, 3);  % Choose white or black for the
+                                               %   text color of the strings so
+                                               %   they can be easily seen over
+                                               %   the background color
+    set(hStrings, {'Color'}, num2cell(textColors, 2));
+    xlabel('response');
+    ylabel('condition');
     
-    % dude = mean(cat(3,conf_mat{:}),3)
+    set(gca,gcaOpts{:}, 'XTick', [1:4], 'YTick', [1:4], 'YTickLabel', {'right', 'left', 'near', 'far'}, 'XTickLabel', {'right', 'left', 'down', 'up'});
+    
     %% PLOT EEG
     figure;
     plot_diff = false; % plot difference waveforms (true/false)
