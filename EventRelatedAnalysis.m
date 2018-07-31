@@ -214,7 +214,7 @@ function [sub_dirs] = EventRelatedAnalysis(run_exp,run_analysis,comp_channel,tem
     textStrings = num2str(mean_conf_mat(:), '%0.2f');% Create strings from the matrix values
     textStrings = strtrim(cellstr(textStrings));  % Remove any space padding
     [x, y] = meshgrid(1:4);  % Create x and y coordinates for the strings
-    hStrings = text(x(:), y(:), textStrings(:),'HorizontalAlignment', 'center');
+    hStrings = text(x(:), y(:), textStrings(:),'HorizontalAlignment', 'center', 'FontSize', 20);
     midValue = mean(get(gca, 'CLim'));  % Get the middle value of the color range
     textColors = repmat(mean_conf_mat(:) > midValue, 1, 3);  % Choose white or black for the
                                                %   text color of the strings so
