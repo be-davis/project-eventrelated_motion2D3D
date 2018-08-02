@@ -181,9 +181,12 @@ function [sub_dirs] = EventRelatedAnalysis(run_exp,run_analysis,comp_channel,tem
     % plot average RT and percent correct
     % bar plots! 
     mean_rt_bar = mean(cat(3,rt_mean{:}),3);
-    mean_corr_bar = mean(cat(3,p_correct{:}),3);
     rt_grandmean = mean(mean_rt_bar,1);
-    rt_granderr = std(rt_grandmean)./sqrt(num_subs);
+    SEM_rt_bar = std(cat(3,rt_mean{:}),[],3)./sqrt(num_subs);% Standard error of mean
+    
+    mean_corr_bar = mean(cat(3,p_correct{:}),3);
+    SEM_corr_bar = std(cat(3,p_correct{:}),[],3)./sqrt(num_subs);
+    
     figure;
     %bar graph of average reaction time
     subplot(2,1,1);
@@ -193,12 +196,12 @@ function [sub_dirs] = EventRelatedAnalysis(run_exp,run_analysis,comp_channel,tem
     end
     set(gca, gcaOpts{:},'xticklabel',cond_names, 'XTick', 1:numel(cond_names));
     ylabel('Reaction time (ms)')
-    errorb(1:4, rt_grandmean, rt_granderr);
+    errorbar(1:4, rt_grandmean, SEM_rt_bar,'.','color','k','linewidth',2);
     
     %bar graph of percent correct
-    hold off
     subplot(2,1,2);
     b = bar(mean_corr_bar, 'facecolor',cond_colors(2,:));
+    hold on;errorbar(1:4, mean_corr_bar, SEM_corr_bar,'.','color','k','linewidth',2);
     set(gca, gcaOpts{:},'xticklabel', cond_names);
     ylabel('Percent correct')
     
