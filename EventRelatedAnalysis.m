@@ -153,7 +153,7 @@ function [sub_dirs] = EventRelatedAnalysis(run_exp,run_analysis,comp_channel,tem
     
     %% PLOT BEHAVIOR
     close all;
-    f_size = 20;
+    f_size = 12;
     l_width = 2;
     gcaOpts = {'tickdir','out','ticklength',[0.0200,0.0200],'box','off','fontsize',f_size,'fontname','Helvetica','linewidth',l_width,'clipping','on'};
     cBrewer = load('colorBrewer.mat');
@@ -182,35 +182,33 @@ function [sub_dirs] = EventRelatedAnalysis(run_exp,run_analysis,comp_channel,tem
     % bar plots! 
     mean_rt_bar = mean(cat(3,rt_mean{:}),3);
     mean_corr_bar = mean(cat(3,p_correct{:}),3);
+    rt_grandmean = mean(mean_rt_bar,1);
+    rt_granderr = std(rt_grandmean)./sqrt(num_subs);
     figure;
+    %bar graph of average reaction time
     subplot(2,1,1);
     hold on
     for i = 1:length(cond_names)
-        if i == 1
-            h = bar(i, mean_rt_bar(i), 'facecolor', cond_colors(i,:));
-        elseif i ==2
-            h = bar(i, mean_rt_bar(i), 'facecolor', cond_colors(i,:));
-        elseif i == 3
-            h = bar(i, mean_rt_bar(i), 'facecolor', cond_colors(i,:));
-        elseif i == 4
-            h = bar(i, mean_rt_bar(i), 'facecolor', cond_colors(i,:));
-        else
-        end
+        h = bar(i, mean_rt_bar(i), 'facecolor', cond_colors(i,:));
     end
     set(gca, gcaOpts{:},'xticklabel',cond_names, 'XTick', 1:numel(cond_names));
     ylabel('Reaction time (ms)')
+    errorb(1:4, rt_grandmean, rt_granderr);
     
+    %bar graph of percent correct
     hold off
     subplot(2,1,2);
     b = bar(mean_corr_bar, 'facecolor',cond_colors(2,:));
     set(gca, gcaOpts{:},'xticklabel', cond_names);
     ylabel('Percent correct')
+    
    
     % confusion matrices, averaged over subjects
     figure;
     mean_conf_mat = mean(cat(3, conf_mat{:}),3);
     imagesc(mean_conf_mat)
     colormap(flipud(gray));
+    colormap;
     textStrings = num2str(mean_conf_mat(:), '%0.2f');% Create strings from the matrix values
     textStrings = strtrim(cellstr(textStrings));  % Remove any space padding
     [x, y] = meshgrid(1:4);  % Create x and y coordinates for the strings
@@ -225,7 +223,8 @@ function [sub_dirs] = EventRelatedAnalysis(run_exp,run_analysis,comp_channel,tem
     ylabel('condition');
     
     set(gca,gcaOpts{:}, 'XTick', [1:4], 'YTick', [1:4], 'YTickLabel', {'right', 'left', 'near', 'far'}, 'XTickLabel', {'right', 'left', 'down', 'up'});
-    
+    %print('/Users/babylab/Desktop/','-r300','-dpng') % prints a high
+    %quality image of the figure
     %% PLOT EEG
     figure;
     plot_diff = false; % plot difference waveforms (true/false)
