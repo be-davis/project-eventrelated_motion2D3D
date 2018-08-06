@@ -27,7 +27,7 @@ function [sub_dirs] = EventRelatedAnalysis(run_exp,run_analysis,comp_channel,tem
     elseif run_exp == 3
         top_path = '/Volumes/Denali_DATA1/Brandon/eventrelated_motion2D3D/EEG_exp1';
         exp_dur = 4000; % four second experiment
-        exclude_subs = {'20180713_nl-0014','20180720_nl-0037_DELETE'};
+        exclude_subs = {'20180713_nl-0014','20180720_nl-0037_DELETE', '20180803_nl-1668'};
     else
         msg = sprintf('\n unknown experiment: %d',run_exp);
         error(msg);
@@ -165,7 +165,7 @@ function [sub_dirs] = EventRelatedAnalysis(run_exp,run_analysis,comp_channel,tem
     bin_edges = lower_cutoff:bin_size:upper_cutoff;
     hold on
     for c = 1:length(cond_names)
-        subplot(4,1,c);
+        subplot(1,4,c);
         histogram(all_rts{c},bin_edges,'facecolor', cond_colors(c,:),'linewidth',l_width);
         xlim([0,2000]);
         ylim([0,hist_ymax]);
@@ -181,16 +181,23 @@ function [sub_dirs] = EventRelatedAnalysis(run_exp,run_analysis,comp_channel,tem
     % plot average RT and percent correct
     % bar plots! 
     mean_rt_bar = mean(cat(3,rt_mean{:}),3);
-
-    mean_corr_bar = mean(cat(3,p_correct{:}),3);
-    %rt_grandmean = mean(mean_rt_bar,1);
-    %rt_granderr = std(rt_grandmean)./sqrt(num_subs);
-
-    rt_grandmean = mean(mean_rt_bar,1);
     SEM_rt_bar = std(cat(3,rt_mean{:}),[],3)./sqrt(num_subs);% Standard error of mean
-    
+    rt_mean2 = cat(1,rt_mean{:});
+    %ttests for significance of rt data
+    for i = 1:4
+        for j = 1:4
+            [~,p_rt_comp(i,j)] = ttest(rt_mean2(:,i),rt_mean2(:,j));
+        end
+    end
+    %ttests for significance of percent correct data
     mean_corr_bar = mean(cat(3,p_correct{:}),3);
     SEM_corr_bar = std(cat(3,p_correct{:}),[],3)./sqrt(num_subs);
+    corr_mean = cat(1,p_correct{:});
+    for i = 1:4
+        for j = 1:4
+            [~,p_corr_comp(i,j)] = ttest(corr_mean(:,i),corr_mean(:,j));
+        end
+    end
     
     figure;
     %bar graph of average reaction time
@@ -201,17 +208,19 @@ function [sub_dirs] = EventRelatedAnalysis(run_exp,run_analysis,comp_channel,tem
     end
     set(gca, gcaOpts{:},'xticklabel',cond_names, 'XTick', 1:numel(cond_names));
     ylabel('Reaction time (ms)')
-
-    %errorb(1:4, rt_grandmean, rt_granderr);
-
-    errorbar(1:4, rt_grandmean, SEM_rt_bar,'.','color','k','linewidth',2);
+   
+    errorbar(1:4, mean_rt_bar, SEM_rt_bar,'.','color','k','linewidth',2);
 
     
     %bar graph of percent correct
     subplot(2,1,2);
-    b = bar(mean_corr_bar, 'facecolor',cond_colors(2,:));
-    hold on;errorbar(1:4, mean_corr_bar, SEM_corr_bar,'.','color','k','linewidth',2);
-    set(gca, gcaOpts{:},'xticklabel', cond_names);
+    hold on;
+    for i = 1:length(cond_names)
+        b = bar(i, mean_corr_bar(i), 'facecolor', cond_colors(i,:), 'basevalue', 90);
+    end
+    errorbar(1:4, mean_corr_bar, SEM_corr_bar,'.','color','k','linewidth',2);
+    set(gca, gcaOpts{:},'xticklabel', cond_names, 'XTick', 1:numel(cond_names));
+    
     ylabel('Percent correct')
     
    
