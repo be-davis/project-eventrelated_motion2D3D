@@ -166,7 +166,8 @@ function [sub_dirs] = EventRelatedAnalysis(run_exp,run_analysis,comp_channel,tem
     hold on
     for c = 1:length(cond_names)
         subplot(1,4,c);
-        histogram(all_rts{c},bin_edges,'facecolor', cond_colors(c,:),'linewidth',l_width);
+        hist(all_rts{c},bin_edges,'linewidth',l_width); % EB: I have changed it to be compatible with matlab 2013 version
+        h = findobj(gca,'Type','patch');set(h,'FaceColor', cond_colors(c,:));
         xlim([0,2000]);
         ylim([0,hist_ymax]);
         set(gca,gcaOpts{:},'ytick',0:20:hist_ymax,'xtick',0:500:2000)
@@ -174,9 +175,28 @@ function [sub_dirs] = EventRelatedAnalysis(run_exp,run_analysis,comp_channel,tem
     hold off
     set(gcf,'units','centimeters');
     hist_pos = get(gcf,'position');
-    hist_pos(3) = 10;
-    hist_pos(4) = 40;
+    hist_pos(3) = 40;
+    hist_pos(4) = 10;
     set(gcf,'position',hist_pos);
+     
+    %plot pdfs: Normalized 
+    figure,
+    for c = 1:length(cond_names)
+        subplot(1,4,c);hold on
+        [f,xi] = ksdensity(all_rts{c});
+        plot(xi,f,'color',cond_colors(c,:),'linewidth',2)
+        xlim([0 2000]);
+        ylim([0,.003]);
+        fill([xi flip(xi)],[f zeros(size(f))],cond_colors(c,:),'LineStyle','none');
+        alpha(0.25)
+        set(gca,gcaOpts{:},'xtick',0:500:2000)
+    end
+    set(gcf,'units','centimeters');
+    hist_pos = get(gcf,'position');
+    hist_pos(3) = 40;
+    hist_pos(4) = 10;
+    set(gcf,'position',hist_pos);
+    
     
     % plot average RT and percent correct
     % bar plots! 
@@ -247,9 +267,10 @@ function [sub_dirs] = EventRelatedAnalysis(run_exp,run_analysis,comp_channel,tem
     %print('/Users/babylab/Desktop/','-r300','-dpng') % prints a high
     %quality image of the figure
     %% PLOT EEG
+    if false
     figure;
     plot_diff = false; % plot difference waveforms (true/false)
-    plot_comps = [1,2,3,4,size(plot_stim_mean,2)];
+    plot_comps = [1,2,size(plot_stim_mean,2)];%[1,2,3,4,size(plot_stim_mean,2)];
     for e = 1:length(plot_comps)
         for q = 1:2
             if e < length(plot_comps)
@@ -349,7 +370,16 @@ function [sub_dirs] = EventRelatedAnalysis(run_exp,run_analysis,comp_channel,tem
         set(egi_h(e),'position',egi_pos);
     end
     set(gcf,'position',fig_pos);
-    export_fig(sprintf('%s/eeg_data.pdf',top_path),'-pdf',gcf);
+    %export_fig(sprintf('%s/eeg_data.pdf',top_path),'-pdf',gcf);
+    end   
+    %% PLot RCAs and behavior data
+%close all   
+cond_names2 = cond_names;%{'2D','3D'};
+Conds = {1,2,3,4};%{[1 2],[3 4]};
+Smoothing = 20;% smoothing parameter
+stat_type = 'pdf'; %'cdf' is the other option
+plot_rca_behavior(rca_data,plot_stim_mean,all_rts,Conds,cond_names2,cond_colors,Smoothing,stat_type,time_res,exp_dur,top_path);
+plot_rca_behavior(rca_data,plot_stim_mean,all_rts,Conds,cond_names2,cond_colors,Smoothing,'cdf',time_res,exp_dur,top_path);
 end
 
 function beh_data = beh_preproc(beh_data,lower_cutoff,upper_cutoff)
@@ -411,7 +441,108 @@ function [resp_mean,resp_trials] = resp_averaging(beh_data,eeg_raw,time_res,exp_
     end
 end
     
+function plot_rca_behavior(rca_data,plot_stim_mean,all_rts,Conds,cond_names2,cond_colors,Smoothparam,stat_type,time_res,exp_dur,top_path)
+l_width = 2;
+f_size = 12;
+figure;
+    plot_diff = false; % plot difference waveforms (true/false)
+    plot_comps = [1,2];
+    for e = 1:length(plot_comps)
+        if e <= length(plot_comps)
+            % plot topography
+            egi_h(e) = subplot(length(plot_comps)+1,3,(3)+3*(e-1)); 
+            hold on
+            mrC.plotOnEgi(rca_data.A(:,e));
+            hold off
+        else
+        end
+        for c = 1:(length(cond_names2))
+            title_str = 'stimulus-locked';
+            eeg_h(e) = subplot(length(plot_comps)+1,3,(1:2)+3*(e-1));
+            % ----------smoothing?-----------------------------------
+            %Smoothparam = 2;
+            FP = ones(1,Smoothparam)/Smoothparam;
+            fDelay = (length(FP)-1)/2;
+            %--------------------------------------------------------
+            y_vals = filter(FP,1,mean(plot_stim_mean(:,plot_comps(e),Conds{c}),3));
+            %y_vals = mean(plot_stim_mean(:,plot_comps(e),Conds{c}),3);
+            x_min = 2000;
+            x_max = 4000;
+            x_vals = 1000/time_res:1000/time_res:exp_dur;
+
+            eeg_pos(:,e) = get(eeg_h(e),'position');
+            hold on;
+            p_h(c) = plot(x_vals-fDelay,y_vals,'linewidth',l_width,'color',mean(cond_colors(Conds{c},:),1));
+        end
+        
+        arrayfun(@(x) uistack(x), p_h,'uni',false);
+        if e == 1
+            title(title_str,'fontsize',f_size,'fontname','Helvetica')
+        elseif e == length(plot_comps)
+            ylabel('amplitude (\muV)','fontsize',f_size,'fontname','Helvetica')
+        end
+        xlim([x_min;x_max]);
+        switch e
+            case 1
+                    y_max = 20; y_min = -15; y_unit = 5;
+            case 2
+                    y_max = 10; y_min = -10; y_unit = 5;
+            otherwise
+                    y_max = 4; y_min = -6; y_unit = 2;   
+        end
+
+        ylim([y_min,y_max]);
+        set(gca,'ytick',(y_min:y_unit:y_max));
+        hold off;
+    end
     
+    
+    % plot histograms
+    eeg_h(e) = subplot(length(plot_comps)+1,3,(1:2)+3*(length(plot_comps)));
+    
+    for c = 1:length(cond_names2)
+        hold on
+        all_rts_conds = all_rts(Conds{c});
+        [f,xi] = ksdensity(cat(1,all_rts_conds{:}),1:1:2000); 
+        if strcmp(stat_type,'cdf'), f = cumsum(f); end% if CDF
+        p_h(c) = plot(xi,f,'color',mean(cond_colors(Conds{c},:),1),'linewidth',2);
+        xlim([0 2000]);
+        if strcmp(stat_type,'cdf'),
+            ylim([0,1]);
+        else
+            ylim([0,.0025]);
+        end
+        %fill([xi flip(xi)],[f zeros(size(f))],mean(cond_colors(Conds{c},:),1),'LineStyle','none');
+        alpha(0.25)
+        set(gca,'xtick',0:500:2000)
+    end
+    
+     
+    l_h = legend(p_h,cond_names2,'location','northeast');
+    legend boxoff;
+    l_pos = get(l_h,'position');
+    l_pos(1) = l_pos(1) + l_pos(3) * 1.5;
+    l_pos(2) = l_pos(2) + l_pos(4) * 0.2;
+    set(l_h,'position',l_pos);
+    xlabel('time (ms)','fontsize',f_size,'fontname','Helvetica')
+    ylabel('pdf','fontsize',f_size,'fontname','Helvetica')
+     
+    
+    set(gcf,'units','centimeters');
+    fig_pos = get(gcf,'position');
+    fig_pos(3) = 20;
+    fig_pos(4) = 30;
+    % adjust eeg pos
+    for e = 1:length(egi_h)
+        egi_pos = get(egi_h(e),'position');
+        egi_pos(3:4) = egi_pos(3:4)*1.5;
+        egi_pos(1) = egi_pos(1)-egi_pos(1)*.1;
+        egi_pos(2) = eeg_pos(2,e)-eeg_pos(2,1)*.05;
+        set(egi_h(e),'position',egi_pos);
+    end
+    set(gcf,'position',fig_pos);
+    %export_fig(sprintf('%s/eeg_data.pdf',top_path),'-pdf',gcf);
+end    
 
 
 
