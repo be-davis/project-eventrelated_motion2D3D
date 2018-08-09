@@ -374,9 +374,9 @@ function [sub_dirs] = EventRelatedAnalysis(run_exp,run_analysis,comp_channel,tem
     end   
     %% PLot RCAs and behavior data
 %close all   
-cond_names2 = cond_names;%{'2D','3D'};
-Conds = {1,2,3,4};%{[1 2],[3 4]};
-Smoothing = 20;% smoothing parameter
+cond_names2 = cond_names;%{'2D','3D'};%
+Conds ={1,2,3,4};%{[1 2],[3 4]}; %
+Smoothing = 1;% smoothing parameter
 stat_type = 'pdf'; %'cdf' is the other option
 plot_rca_behavior(rca_data,plot_stim_mean,all_rts,Conds,cond_names2,cond_colors,Smoothing,stat_type,time_res,exp_dur,top_path);
 plot_rca_behavior(rca_data,plot_stim_mean,all_rts,Conds,cond_names2,cond_colors,Smoothing,'cdf',time_res,exp_dur,top_path);
@@ -525,7 +525,7 @@ figure;
     l_pos(2) = l_pos(2) + l_pos(4) * 0.2;
     set(l_h,'position',l_pos);
     xlabel('time (ms)','fontsize',f_size,'fontname','Helvetica')
-    ylabel('pdf','fontsize',f_size,'fontname','Helvetica')
+    ylabel(stat_type,'fontsize',f_size,'fontname','Helvetica')
      
     
     set(gcf,'units','centimeters');
