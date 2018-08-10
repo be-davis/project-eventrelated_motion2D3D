@@ -130,7 +130,7 @@ function [sub_dirs] = EventRelatedAnalysis(run_exp,run_analysis,comp_channel,tem
         clear *temp*;
         % and then save
         fprintf('\n ... SAVING DATA ... \n');
-        save(sprintf('%s/analyzed_data.mat',top_path),'rca_data','beh_data','egi_data','-v7.3');
+        save(sprintf('%s/analyzed_data2.mat',top_path),'rca_data','beh_data','egi_data','-v7.3');
     end
     %% AVERAGING
     % average behavioral data
@@ -230,13 +230,18 @@ function [sub_dirs] = EventRelatedAnalysis(run_exp,run_analysis,comp_channel,tem
     ylabel('Reaction time (ms)')
    
     errorbar(1:4, mean_rt_bar, SEM_rt_bar,'.','color','k','linewidth',2);
+    
+%     d = 50;
+%     line([1.5 3.5], [1200 1200],'color','k');
+%     text(2.5, 1220, '*','fontsize',25)
+%     
 
     
     %bar graph of percent correct
     subplot(2,1,2);
     hold on;
     for i = 1:length(cond_names)
-        b = bar(i, mean_corr_bar(i), 'facecolor', cond_colors(i,:), 'basevalue', 90);
+        b = bar(i, mean_corr_bar(i), 'facecolor', cond_colors(i,:), 'basevalue', 80);
     end
     errorbar(1:4, mean_corr_bar, SEM_corr_bar,'.','color','k','linewidth',2);
     set(gca, gcaOpts{:},'xticklabel', cond_names, 'XTick', 1:numel(cond_names));
@@ -378,8 +383,8 @@ cond_names2 = cond_names;%{'2D','3D'};%
 Conds ={1,2,3,4};%{[1 2],[3 4]}; %
 Smoothing = 1;% smoothing parameter
 stat_type = 'pdf'; %'cdf' is the other option
-plot_rca_behavior(rca_data,plot_stim_mean,all_rts,Conds,cond_names2,cond_colors,Smoothing,stat_type,time_res,exp_dur,top_path);
-plot_rca_behavior(rca_data,plot_stim_mean,all_rts,Conds,cond_names2,cond_colors,Smoothing,'cdf',time_res,exp_dur,top_path);
+plot_rca_behavior(rca_data,stim_mean,all_rts,Conds,cond_names2,cond_colors,Smoothing,stat_type,time_res,exp_dur,top_path);
+plot_rca_behavior(rca_data,stim_mean,all_rts,Conds,cond_names2,cond_colors,Smoothing,'cdf',time_res,exp_dur,top_path);
 end
 
 function beh_data = beh_preproc(beh_data,lower_cutoff,upper_cutoff)
@@ -441,7 +446,9 @@ function [resp_mean,resp_trials] = resp_averaging(beh_data,eeg_raw,time_res,exp_
     end
 end
     
-function plot_rca_behavior(rca_data,plot_stim_mean,all_rts,Conds,cond_names2,cond_colors,Smoothparam,stat_type,time_res,exp_dur,top_path)
+function plot_rca_behavior(rca_data,stim_mean,all_rts,Conds,cond_names2,cond_colors,Smoothparam,stat_type,time_res,exp_dur,top_path)
+dostats = true;
+plot_stim_mean = squeeze(mean(stim_mean,4));
 l_width = 2;
 f_size = 12;
 figure;
@@ -473,6 +480,7 @@ figure;
             eeg_pos(:,e) = get(eeg_h(e),'position');
             hold on;
             p_h(c) = plot(x_vals-fDelay,y_vals,'linewidth',l_width,'color',mean(cond_colors(Conds{c},:),1));
+            
         end
         
         arrayfun(@(x) uistack(x), p_h,'uni',false);
@@ -482,6 +490,7 @@ figure;
             ylabel('amplitude (\muV)','fontsize',f_size,'fontname','Helvetica')
         end
         xlim([x_min;x_max]);
+        set(gca,'xtick',2000:500:4000,'xticklabel',0:500:2000)
         switch e
             case 1
                     y_max = 20; y_min = -15; y_unit = 5;
@@ -490,7 +499,20 @@ figure;
             otherwise
                     y_max = 4; y_min = -6; y_unit = 2;   
         end
-
+        %---------------------Stats on RCs-------------------------
+        if dostats ,
+            for t = 1:size(stim_mean)
+                p_condcomp(t,e) = signrank(squeeze(mean(stim_mean(t,e,1:2,:))),squeeze(mean(stim_mean(t,e,3:4,:))));
+            end
+        end
+        
+        sig_ind = [find(diff(p_condcomp(:,e)<0.05)==1) find(diff(p_condcomp(:,e)<0.05)==-1)];
+        
+        for i = 1:size(sig_ind,1)
+            fill([x_vals(sig_ind(i,:)) flip(x_vals(sig_ind(i,:)))],[ones(1,2)*(y_min+(y_max-y_min)*.08) ones(1,2)*(y_min)],'r','LineStyle','none');
+            alpha(.55);
+        end
+        %-----------------------------------------------------------    
         ylim([y_min,y_max]);
         set(gca,'ytick',(y_min:y_unit:y_max));
         hold off;
