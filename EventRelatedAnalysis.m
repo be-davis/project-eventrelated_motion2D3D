@@ -272,7 +272,7 @@ function [sub_dirs] = EventRelatedAnalysis(run_exp,run_analysis,comp_channel,tem
     %print('/Users/babylab/Desktop/','-r300','-dpng') % prints a high
     %quality image of the figure
     %% PLOT EEG
-    if false
+    if true
     figure;
     plot_diff = false; % plot difference waveforms (true/false)
     plot_comps = [1,2,size(plot_stim_mean,2)];%[1,2,3,4,size(plot_stim_mean,2)];
@@ -384,7 +384,7 @@ Conds ={1,2,3,4};%{[1 2],[3 4]}; %
 Smoothing = 1;% smoothing parameter
 stat_type = 'pdf'; %'cdf' is the other option
 plot_rca_behavior(rca_data,stim_mean,all_rts,Conds,cond_names2,cond_colors,Smoothing,stat_type,time_res,exp_dur,top_path);
-plot_rca_behavior(rca_data,stim_mean,all_rts,Conds,cond_names2,cond_colors,Smoothing,'cdf',time_res,exp_dur,top_path);
+%plot_rca_behavior(rca_data,stim_mean,all_rts,Conds,cond_names2,cond_colors,Smoothing,'cdf',time_res,exp_dur,top_path);
 end
 
 function beh_data = beh_preproc(beh_data,lower_cutoff,upper_cutoff)
@@ -425,6 +425,7 @@ function [eeg_mean,eeg_trials] = stim_averaging(beh_data,eeg_raw)
         eeg_mean(:,:,c) = squeeze(mean(eeg_trials{c},3));
     end
 end
+
 function [resp_mean,resp_trials] = resp_averaging(beh_data,eeg_raw,time_res,exp_dur,pre_time,post_time)
     % RESPONSE-LOCKED AVERAGING
     % RETURN TIME X ELECTRODE MATRIX X CONDITION
@@ -451,6 +452,9 @@ dostats = true;
 plot_stim_mean = squeeze(mean(stim_mean,4));
 l_width = 2;
 f_size = 12;
+
+diff2D3D = squeeze(mean(stim_mean(:,:,1:2,:),3)-mean(stim_mean(:,:,3:4,:),3));%2D vs. 3D difference
+
 figure;
     plot_diff = false; % plot difference waveforms (true/false)
     plot_comps = [1,2];
@@ -501,17 +505,17 @@ figure;
         end
         %---------------------Stats on RCs-------------------------
         if dostats ,
-            for t = 1:size(stim_mean)
-                p_condcomp(t,e) = signrank(squeeze(mean(stim_mean(t,e,1:2,:))),squeeze(mean(stim_mean(t,e,3:4,:))));
-            end
+            %p_condcomp(:,e) = arrayfun(@(x) signrank(squeeze(mean(stim_mean(x,e,1:2,:))),squeeze(mean(stim_mean(x,e,3:4,:)))),1:size(stim_mean)); % uncorrected for multiple comparision        
+
+            [realT,p_condcomp(:,e),corrT,critVal,clustDistrib]= ttest_permute(squeeze(diff2D3D(:,e,:)));
+            sig_ind1 = [find(diff(p_condcomp(:,e)<0.05)==1) find(diff(p_condcomp(:,e)<0.05)==-1)];
+            sig_ind2 = [find(diff(corrT)==1) find(diff(corrT)==-1)];
+            arrayfun(@(x) fill([x_vals(sig_ind1(x,:)) flip(x_vals(sig_ind1(x,:)))],[ones(1,2)*(y_min+(y_max-y_min)*.08) ones(1,2)*(y_min)],'y','LineStyle','none'),1:size(sig_ind1,1));
+            alpha(.45);
+            arrayfun(@(x) fill([x_vals(sig_ind2(x,:)) flip(x_vals(sig_ind2(x,:)))],[ones(1,2)*(y_min+(y_max-y_min)*.08) ones(1,2)*(y_min)],'r','LineStyle','none'),1:size(sig_ind2,1));
+            alpha(.65);
         end
         
-        sig_ind = [find(diff(p_condcomp(:,e)<0.05)==1) find(diff(p_condcomp(:,e)<0.05)==-1)];
-        
-        for i = 1:size(sig_ind,1)
-            fill([x_vals(sig_ind(i,:)) flip(x_vals(sig_ind(i,:)))],[ones(1,2)*(y_min+(y_max-y_min)*.08) ones(1,2)*(y_min)],'r','LineStyle','none');
-            alpha(.55);
-        end
         %-----------------------------------------------------------    
         ylim([y_min,y_max]);
         set(gca,'ytick',(y_min:y_unit:y_max));
