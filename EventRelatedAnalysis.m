@@ -27,7 +27,7 @@ function [sub_dirs] = EventRelatedAnalysis(run_exp,run_analysis,comp_channel,tem
     elseif run_exp == 3
         top_path = '/Volumes/Denali_DATA1/Brandon/eventrelated_motion2D3D/EEG_exp1';
         exp_dur = 4000; % four second experiment
-        exclude_subs = {'20180713_nl-0014','20180720_nl-0037_DELETE', '20180803_nl-1668'};
+        exclude_subs = {'20180713_nl-0014','20180720_nl-0037_DELETE', '20180803_nl-1668','20180815_nl-1681','20180815_nl-1676'};
     else
         msg = sprintf('\n unknown experiment: %d',run_exp);
         error(msg);
@@ -202,23 +202,18 @@ function [sub_dirs] = EventRelatedAnalysis(run_exp,run_analysis,comp_channel,tem
     % bar plots! 
     mean_rt_bar = mean(cat(3,rt_mean{:}),3);
     SEM_rt_bar = std(cat(3,rt_mean{:}),[],3)./sqrt(num_subs);% Standard error of mean
-    rt_mean2 = cat(1,rt_mean{:});
+    rt_mean_temp = cat(1,rt_mean{:});
+    rt_mean2D3D = [mean(rt_mean_temp(:,1:2),2) mean(rt_mean_temp(:,3:4),2)];
     %ttests for significance of rt data
-    for i = 1:4
-        for j = 1:4
-            [~,p_rt_comp(i,j)] = ttest(rt_mean2(:,i),rt_mean2(:,j));
-        end
-    end
+    [~,p_rt_comp,~,stats_rt_comp] = ttest(rt_mean2D3D(:,1),rt_mean2D3D(:,2));
+
     %ttests for significance of percent correct data
     mean_corr_bar = mean(cat(3,p_correct{:}),3);
     SEM_corr_bar = std(cat(3,p_correct{:}),[],3)./sqrt(num_subs);
-    corr_mean = cat(1,p_correct{:});
-    for i = 1:4
-        for j = 1:4
-            [~,p_corr_comp(i,j)] = ttest(corr_mean(:,i),corr_mean(:,j));
-        end
-    end
-    
+    corr_mean_temp = cat(1,p_correct{:});
+    corr_mean_2D3D = [mean(corr_mean_temp(:,1:2),2) mean(corr_mean_temp(:,3:4),2)];
+    [~,p_corr_comp,~,stats_corr_comp] = ttest(corr_mean_2D3D(:,1),corr_mean_2D3D(:,2));
+ 
     figure;
     %bar graph of average reaction time
     subplot(2,1,1);
@@ -241,7 +236,7 @@ function [sub_dirs] = EventRelatedAnalysis(run_exp,run_analysis,comp_channel,tem
     subplot(2,1,2);
     hold on;
     for i = 1:length(cond_names)
-        b = bar(i, mean_corr_bar(i), 'facecolor', cond_colors(i,:), 'basevalue', 70);
+        b = bar(i, mean_corr_bar(i), 'facecolor', cond_colors(i,:), 'basevalue', 0);
     end
     errorbar(1:4, mean_corr_bar, SEM_corr_bar,'.','color','k','linewidth',2);
     set(gca, gcaOpts{:},'xticklabel', cond_names, 'XTick', 1:numel(cond_names));
@@ -513,7 +508,7 @@ figure;
             arrayfun(@(x) fill([x_vals(sig_ind1(x,:)) flip(x_vals(sig_ind1(x,:)))],[ones(1,2)*(y_min+(y_max-y_min)*.08) ones(1,2)*(y_min)],'y','LineStyle','none'),1:size(sig_ind1,1));
             alpha(.45);
             arrayfun(@(x) fill([x_vals(sig_ind2(x,:)) flip(x_vals(sig_ind2(x,:)))],[ones(1,2)*(y_min+(y_max-y_min)*.08) ones(1,2)*(y_min)],'r','LineStyle','none'),1:size(sig_ind2,1));
-            alpha(.65);
+            
         end
         
         %-----------------------------------------------------------    
