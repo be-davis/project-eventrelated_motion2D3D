@@ -130,7 +130,7 @@ function [sub_dirs] = EventRelatedAnalysis(run_exp,run_analysis,comp_channel,tem
         clear *temp*;
         % and then save
         fprintf('\n ... SAVING DATA ... \n');
-        save(sprintf('%s/analyzed_data2.mat',top_path),'rca_data','beh_data','egi_data','-v7.3');
+        save(sprintf('%s/analyzed_data.mat',top_path),'rca_data','beh_data','egi_data','-v7.3');
     end
     %% AVERAGING
     % average behavioral data
@@ -241,7 +241,7 @@ function [sub_dirs] = EventRelatedAnalysis(run_exp,run_analysis,comp_channel,tem
     subplot(2,1,2);
     hold on;
     for i = 1:length(cond_names)
-        b = bar(i, mean_corr_bar(i), 'facecolor', cond_colors(i,:), 'basevalue', 80);
+        b = bar(i, mean_corr_bar(i), 'facecolor', cond_colors(i,:), 'basevalue', 70);
     end
     errorbar(1:4, mean_corr_bar, SEM_corr_bar,'.','color','k','linewidth',2);
     set(gca, gcaOpts{:},'xticklabel', cond_names, 'XTick', 1:numel(cond_names));
