@@ -502,7 +502,7 @@ figure;
         if dostats ,
             %p_condcomp(:,e) = arrayfun(@(x) signrank(squeeze(mean(stim_mean(x,e,1:2,:))),squeeze(mean(stim_mean(x,e,3:4,:)))),1:size(stim_mean)); % uncorrected for multiple comparision        
 
-            [realT,p_condcomp(:,e),corrT,critVal,clustDistrib]= ttest_permute(squeeze(diff2D3D(:,e,:)));
+            [realT,p_condcomp(:,e),corrT,critVal,clustDistrib]= ttest_permute_sstats(squeeze(diff2D3D(:,e,:)));
             sig_ind1 = [find(diff(p_condcomp(:,e)<0.05)==1) find(diff(p_condcomp(:,e)<0.05)==-1)];
             sig_ind2 = [find(diff(corrT)==1) find(diff(corrT)==-1)];
             arrayfun(@(x) fill([x_vals(sig_ind1(x,:)) flip(x_vals(sig_ind1(x,:)))],[ones(1,2)*(y_min+(y_max-y_min)*.08) ones(1,2)*(y_min)],'y','LineStyle','none'),1:size(sig_ind1,1));
